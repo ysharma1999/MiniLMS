@@ -1,56 +1,81 @@
-name: Build APK and Release
+name: Build & Release APK
 
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "v*"          # triggers on tags like v1.0.0, v1.2.3
+  workflow_dispatch:  # also allows manual trigger from GitHub UI
 
 jobs:
   build:
+    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      # 1. Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      # 2. Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: "20"
+          cache: "npm"
 
-      - name: Install deps
-        run: npm install
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Install EAS
-        run: npm install -g eas-cli
-
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
-      - name: Verify Expo Auth
-        run: eas whoami
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Build APK
-        run: eas build -p android --profile preview --non-interactive
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Get build URL
-        id: url
-        run: |
-          BUILD_URL=$(eas build:list --platform android --limit 1 --json | jq -r '.[0].artifacts.buildUrl')
-          echo "url=$BUILD_URL" >> $GITHUB_OUTPUT
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Download APK
-        run: curl -L ${{ steps.url.outputs.url }} -o app.apk
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
+      # 4. Setup Expo & EAS
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
         with:
-          files: app.apk
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # 5. Build APK using EAS
+      - name: Build APK
+        run: eas build --platform android --profile preview --non-interactive --no-wait
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      # 6. Wait for build and download APK
+      - name: Download APK from EAS
+        id: download
+        run: |
+          echo "Waiting for EAS build to complete..."
+          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive | jq -r '.[0].artifacts.buildUrl')
+          echo "APK URL: $BUILD_URL"
+          curl -L -o app-release.apk "$BUILD_URL"
+          echo "apk_path=app-release.apk" >> $GITHUB_OUTPUT
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      # 7. Create GitHub Release and upload APK
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "MiniLMS ${{ github.ref_name }}"
+          body: |
+            ## 📱 MiniLMS Release ${{ github.ref_name }}
+
+            ### What's included
+            - ✅ Course catalog with search
+            - ✅ Bookmarks with notifications
+            - ✅ WebView course content
+            - ✅ User authentication
+            - ✅ Offline mode detection
+
+            ### Installation
+            1. Download `app-release.apk` below
+            2. Enable "Install from unknown sources" on your Android device
+            3. Install the APK
+
+            > Built with Expo SDK 51 + React Native
+          files: app-release.apk
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
