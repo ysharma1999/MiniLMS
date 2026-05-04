@@ -97,3 +97,17 @@ This application requires the following permissions to function fully:
 ## 📄 License
 
 This project is licensed under the MIT License.
+## 📱 Download & Install APK
+
+You can directly download and try the latest version of the app:
+
+👉 **[Download Latest APK](https://github.com/ysharma1999/MiniLMS/releases/latest)**
+
+### 📦 Steps to Install
+1. Download the APK file on your Android device
+2. Go to **Settings → Security → Install unknown apps**
+3. Enable permission for your browser/files app
+4. Open the downloaded APK
+5. Tap **Install**
+
+> ⚠️ Note: This app is not from Play Store, so you need to allow installation manually.
