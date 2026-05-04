@@ -3,8 +3,11 @@ name: Build & Release APK
 on:
   push:
     tags:
-      - "v*"          # triggers on tags like v1.0.0, v1.2.3
-  workflow_dispatch:  # also allows manual trigger from GitHub UI
+      - "v*"
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -16,12 +19,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js
+      # 2. Setup Node.js 24 (fixes deprecation warning)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: "24"
+          # cache removed — was causing "Cache service 400" error
 
       # 3. Install dependencies
       - name: Install dependencies
@@ -34,46 +37,73 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      # 5. Build APK using EAS
+      # 5. Build APK using EAS (runs on Expo cloud, not here)
       - name: Build APK
-        run: eas build --platform android --profile preview --non-interactive --no-wait
+        id: build
+        run: |
+          BUILD_ID=$(eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --json \
+            | jq -r '.id')
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "Build ID: $BUILD_ID"
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # 6. Wait for build and download APK
-      - name: Download APK from EAS
-        id: download
+      # 6. Wait for build to finish and get APK URL
+      - name: Wait for build and get APK URL
+        id: get_apk
         run: |
           echo "Waiting for EAS build to complete..."
-          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive | jq -r '.[0].artifacts.buildUrl')
-          echo "APK URL: $BUILD_URL"
-          curl -L -o app-release.apk "$BUILD_URL"
-          echo "apk_path=app-release.apk" >> $GITHUB_OUTPUT
+          for i in $(seq 1 30); do
+            STATUS=$(eas build:view ${{ steps.build.outputs.build_id }} --json | jq -r '.status')
+            echo "Attempt $i — Status: $STATUS"
+            if [ "$STATUS" = "FINISHED" ]; then
+              APK_URL=$(eas build:view ${{ steps.build.outputs.build_id }} --json | jq -r '.artifacts.buildUrl')
+              echo "apk_url=$APK_URL" >> $GITHUB_OUTPUT
+              echo "APK URL: $APK_URL"
+              break
+            elif [ "$STATUS" = "ERRORED" ] || [ "$STATUS" = "CANCELLED" ]; then
+              echo "Build failed with status: $STATUS"
+              exit 1
+            fi
+            echo "Waiting 60 seconds..."
+            sleep 60
+          done
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # 7. Create GitHub Release and upload APK
+      # 7. Download APK
+      - name: Download APK
+        run: |
+          curl -L -o app-release.apk "${{ steps.get_apk.outputs.apk_url }}"
+          echo "APK size: $(du -sh app-release.apk)"
+
+      # 8. Create GitHub Release and upload APK
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: "MiniLMS ${{ github.ref_name }}"
           body: |
-            ## 📱 MiniLMS Release ${{ github.ref_name }}
+            ## 📱 MiniLMS ${{ github.ref_name }}
 
-            ### What's included
-            - ✅ Course catalog with search
-            - ✅ Bookmarks with notifications
-            - ✅ WebView course content
-            - ✅ User authentication
-            - ✅ Offline mode detection
+            ### Features
+            - ✅ Login & Registration
+            - ✅ Course Catalog with Search
+            - ✅ Bookmarks with Notifications
+            - ✅ WebView Course Content
+            - ✅ Offline Mode Detection
+            - ✅ Profile with Avatar Upload
 
-            ### Installation
+            ### Install on Android
             1. Download `app-release.apk` below
-            2. Enable "Install from unknown sources" on your Android device
-            3. Install the APK
+            2. On your phone: **Settings → Security → Unknown Sources → Enable**
+            3. Open the downloaded APK and install
 
-            > Built with Expo SDK 51 + React Native
+            > Built with Expo SDK + EAS Build
           files: app-release.apk
           draft: false
           prerelease: false
