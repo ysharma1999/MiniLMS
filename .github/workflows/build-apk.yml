@@ -15,73 +15,100 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js 24 (fixes deprecation warning)
-      - name: Setup Node.js
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          # cache removed — was causing "Cache service 400" error
 
-      # 3. Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # 4. Setup Expo & EAS
       - name: Setup EAS
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      # 5. Build APK using EAS (runs on Expo cloud, not here)
-      - name: Build APK
+      # Build and capture the build URL directly from EAS output
+      - name: Build APK on EAS
         id: build
         run: |
-          BUILD_ID=$(eas build \
+          echo "Starting EAS build..."
+
+          # Run build and capture full output
+          BUILD_OUTPUT=$(eas build \
             --platform android \
             --profile preview \
             --non-interactive \
             --json \
-            | jq -r '.id')
-          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+            --no-wait 2>/dev/null)
+
+          echo "Raw EAS output:"
+          echo "$BUILD_OUTPUT"
+
+          # EAS returns array — extract first element's id
+          BUILD_ID=$(echo "$BUILD_OUTPUT" | jq -r 'if type=="array" then .[0].id else .id end')
+
+          if [ -z "$BUILD_ID" ] || [ "$BUILD_ID" = "null" ]; then
+            echo "Failed to get build ID. Full output:"
+            echo "$BUILD_OUTPUT"
+            exit 1
+          fi
+
           echo "Build ID: $BUILD_ID"
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # 6. Wait for build to finish and get APK URL
-      - name: Wait for build and get APK URL
-        id: get_apk
+      # Poll until build finishes (max 40 min)
+      - name: Wait for EAS build to finish
+        id: wait
         run: |
-          echo "Waiting for EAS build to complete..."
-          for i in $(seq 1 30); do
-            STATUS=$(eas build:view ${{ steps.build.outputs.build_id }} --json | jq -r '.status')
-            echo "Attempt $i — Status: $STATUS"
+          BUILD_ID="${{ steps.build.outputs.build_id }}"
+          echo "Polling build: $BUILD_ID"
+
+          for i in $(seq 1 40); do
+            echo "--- Attempt $i/40 ---"
+
+            RAW=$(eas build:view "$BUILD_ID" --json 2>/dev/null)
+
+            # Handle both array and object response
+            STATUS=$(echo "$RAW" | jq -r 'if type=="array" then .[0].status else .status end')
+            echo "Status: $STATUS"
+
             if [ "$STATUS" = "FINISHED" ]; then
-              APK_URL=$(eas build:view ${{ steps.build.outputs.build_id }} --json | jq -r '.artifacts.buildUrl')
+              APK_URL=$(echo "$RAW" | jq -r 'if type=="array" then .[0].artifacts.buildUrl else .artifacts.buildUrl end')
+              echo "Build finished! APK URL: $APK_URL"
               echo "apk_url=$APK_URL" >> $GITHUB_OUTPUT
-              echo "APK URL: $APK_URL"
-              break
-            elif [ "$STATUS" = "ERRORED" ] || [ "$STATUS" = "CANCELLED" ]; then
+              exit 0
+            fi
+
+            if [ "$STATUS" = "ERRORED" ] || [ "$STATUS" = "CANCELLED" ]; then
               echo "Build failed with status: $STATUS"
               exit 1
             fi
+
             echo "Waiting 60 seconds..."
             sleep 60
           done
+
+          echo "Timed out waiting for build after 40 minutes"
+          exit 1
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # 7. Download APK
+      # Download the APK
       - name: Download APK
         run: |
-          curl -L -o app-release.apk "${{ steps.get_apk.outputs.apk_url }}"
-          echo "APK size: $(du -sh app-release.apk)"
+          APK_URL="${{ steps.wait.outputs.apk_url }}"
+          echo "Downloading from: $APK_URL"
+          curl -L -f -o app-release.apk "$APK_URL"
+          echo "Downloaded APK size: $(du -sh app-release.apk)"
 
-      # 8. Create GitHub Release and upload APK
+      # Create GitHub Release with APK attached
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -91,19 +118,20 @@ jobs:
             ## 📱 MiniLMS ${{ github.ref_name }}
 
             ### Features
-            - ✅ Login & Registration
-            - ✅ Course Catalog with Search
-            - ✅ Bookmarks with Notifications
-            - ✅ WebView Course Content
-            - ✅ Offline Mode Detection
-            - ✅ Profile with Avatar Upload
+            - 🔐 Login & Registration with SecureStore
+            - 📚 Course Catalog with search & infinite scroll
+            - 🔖 Bookmarks with milestone notifications
+            - 🌐 WebView course content
+            - 📡 Offline mode detection
+            - 👤 Profile with avatar upload
+            - 🔔 Local push notifications
 
             ### Install on Android
             1. Download `app-release.apk` below
-            2. On your phone: **Settings → Security → Unknown Sources → Enable**
-            3. Open the downloaded APK and install
+            2. **Settings → Security → Install unknown apps → Allow**
+            3. Open the APK and install
 
-            > Built with Expo SDK + EAS Build
+            > Built with Expo + EAS Build
           files: app-release.apk
           draft: false
           prerelease: false
