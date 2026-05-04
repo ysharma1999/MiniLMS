@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Node
@@ -18,17 +18,17 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install dependencies
+      - name: Install deps
         run: npm install
 
-      - name: Install EAS CLI
+      - name: Install EAS
         run: npm install -g eas-cli
 
       - name: Install jq
         run: sudo apt-get install -y jq
 
-      - name: Configure Expo project
-        run: eas project:init --non-interactive || true
+      - name: Verify Expo Auth
+        run: eas whoami
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
@@ -37,8 +37,8 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Get latest build URL
-        id: get_url
+      - name: Get build URL
+        id: url
         run: |
           BUILD_URL=$(eas build:list --platform android --limit 1 --json | jq -r '.[0].artifacts.buildUrl')
           echo "url=$BUILD_URL" >> $GITHUB_OUTPUT
@@ -46,9 +46,9 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       - name: Download APK
-        run: curl -L ${{ steps.get_url.outputs.url }} -o app.apk
+        run: curl -L ${{ steps.url.outputs.url }} -o app.apk
 
-      - name: Create GitHub Release
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: app.apk
