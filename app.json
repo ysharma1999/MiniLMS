@@ -9,7 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.minilms.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Used for profile picture updates",
+        "NSPhotoLibraryUsageDescription": "Used for selecting profile pictures"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +24,17 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.minilms.app",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "output": "static",
@@ -27,6 +42,20 @@
     },
     "plugins": [
       "expo-router",
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#6366F1"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to update your profile picture."
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -38,7 +67,9 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

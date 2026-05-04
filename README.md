@@ -1,50 +1,99 @@
-# Welcome to your Expo app 👋
+# MiniLMS 🚀
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+MiniLMS is a modern, lightweight Learning Management System built with **React Native** and **Expo**. Designed with a dynamic, premium UI using **NativeWind** (Tailwind CSS for React Native), it offers an intuitive mobile learning experience.
 
-## Get started
+## ✨ Features
 
-1. Install dependencies
+- **Auth Flow**: Secure login and registration utilizing token-based authentication and secure device storage.
+- **Course Exploration**: Browse, search, and filter a vast library of courses fetched from a remote API.
+- **Interactive Course Content**: High-performance course content rendering via Android/iOS native `WebView`, using locally bundled HTML assets for maximum reliability and offline support.
+- **Bookmarks & State Management**: Seamlessly bookmark favorite courses and track your enrollments instantly using **Zustand**.
+- **Smart Push Notifications**: 
+  - Immediate enrollment confirmations and milestone celebrations (e.g., "5 courses bookmarked!").
+  - 24-hour inactivity reminders to keep users engaged.
+  - Daily learning goals scheduled locally.
+- **Offline & Network Awareness**: Built-in network status monitoring with graceful offline fallbacks and error boundaries.
 
+## 🛠️ Technology Stack
+
+- **Framework**: [React Native](https://reactnative.dev/) via [Expo](https://expo.dev/) (SDK 50+)
+- **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/) (File-based routing)
+- **Styling**: [NativeWind](https://www.nativewind.dev/) (Tailwind CSS v3)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand)
+- **Data Fetching**: [Axios](https://axios-http.com/)
+- **Notifications**: `expo-notifications`
+- **Web Content**: `react-native-webview` & `expo-asset`
+
+## 📂 Project Structure
+
+```text
+MiniLMS/
+├── app/                  # Expo Router file-based navigation screens
+│   ├── (auth)/           # Authentication screens (Login, Register)
+│   ├── (course)/         # Course details and WebView renderer
+│   ├── (tabs)/           # Main bottom tab screens (Home, Bookmarks, Profile)
+│   ├── _layout.tsx       # Root layout and theme provider
+│   └── index.tsx         # Initial entry point
+├── assets/               # Static assets
+│   ├── html/             # Local HTML templates for WebView injection
+│   └── images/           # Images and icons
+├── components/           # Reusable UI components
+│   ├── ui/               # Primitive/Base UI components (ErrorBoundary, OfflineBanner)
+│   ├── CourseCard.tsx    # Interactive course display card
+│   └── SearchBar.tsx     # Custom search input
+├── hooks/                # Custom React hooks (useAppInit, useNetwork)
+├── services/             # External API integration and async storage logic
+│   ├── api.ts            # Axios configuration and interceptors
+│   ├── auth.ts           # Authentication service
+│   ├── courses.ts        # Course fetching and mapping
+│   └── storage.ts        # SecureStore and AsyncStorage wrappers
+├── store/                # Zustand state management
+│   ├── authStore.ts      # User session and auth state
+│   └── courseStore.ts    # Course data, bookmarks, and enrollments
+├── types/                # Global TypeScript definitions
+└── utils/                # Helper functions
+    └── notifications.ts  # Push notification scheduling and permissions
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+Ensure you have the following installed on your local development machine:
+- [Node.js](https://nodejs.org/) (v18 or higher)
+- [npm](https://www.npmjs.com/) or [yarn](https://yarnpkg.com/)
+- [Expo Go](https://expo.dev/client) app installed on your physical iOS or Android device.
+
+### Installation
+
+1. **Clone the repository** (if applicable) or navigate to the project directory:
+   ```bash
+   cd MiniLMS
+   ```
+
+2. **Install dependencies**:
    ```bash
    npm install
    ```
 
-2. Start the app
-
+3. **Start the Metro Bundler**:
    ```bash
-   npx expo start
+   npm start
    ```
 
-In the output, you'll find options to open the app in a
+4. **Run on a Device or Emulator**:
+   - Press `a` to open the app on an Android Emulator.
+   - Press `i` to open the app on an iOS Simulator.
+   - Scan the QR code in the terminal using the **Expo Go** app on your physical device.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+> **Note on Notifications & WebViews**: For testing push notifications and local HTML asset loading within WebViews, we highly recommend running the app on a **physical device** instead of an emulator.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🔒 Permissions & Privacy
 
-## Get a fresh project
+This application requires the following permissions to function fully:
+- **Notifications**: To schedule local reminders and course alerts.
+- **Network Access**: To fetch course data and authenticate users.
 
-When you're ready, run:
+## 📄 License
 
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+This project is licensed under the MIT License.

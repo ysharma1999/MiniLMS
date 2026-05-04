@@ -1,98 +1,182 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { CourseCard } from "@/components/CourseCard";
+import { SearchBar } from "@/components/SearchBar";
+import { OfflineBanner } from "@/components/ui/OfflineBanner";
+import { useCourseStore, useFilteredCourses } from "@/store/courseStore";
+import type { Course } from "@/types";
+import { Ionicons } from "@expo/vector-icons";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  ListRenderItemInfo,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
-
-export default function HomeScreen() {
+function EmptyState({ hasSearch }: { hasSearch: boolean }): React.JSX.Element {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <View className="flex-1 items-center justify-center py-20 px-8">
+      <View className="w-20 h-20 rounded-full bg-dark-800 items-center justify-center mb-4">
+        <Ionicons
+          name={hasSearch ? "search-outline" : "book-outline"}
+          size={36}
+          color="#475569"
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      </View>
+      <Text className="text-white text-lg font-bold mb-2 text-center">
+        {hasSearch ? "No courses found" : "No courses yet"}
+      </Text>
+      <Text className="text-dark-400 text-sm text-center">
+        {hasSearch
+          ? "Try a different search term"
+          : "Pull down to refresh and load courses"}
+      </Text>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+function ListFooter({
+  isLoading,
+  hasMore,
+}: {
+  isLoading: boolean;
+  hasMore: boolean;
+}): React.JSX.Element | null {
+  if (!isLoading) return null;
+  return (
+    <View className="py-4 items-center">
+      <ActivityIndicator color="#6366F1" />
+    </View>
+  );
+}
+
+export default function CoursesScreen(): React.JSX.Element {
+  const {
+    isLoading,
+    isRefreshing,
+    error,
+    hasMore,
+    searchQuery,
+    setSearchQuery,
+    toggleBookmark,
+    fetchCourses,
+    refreshCourses,
+    fetchNextPage,
+    clearError,
+  } = useCourseStore();
+
+  const filteredCourses = useFilteredCourses();
+  const isInitialLoad = useRef(false);
+
+  useEffect(() => {
+    if (!isInitialLoad.current) {
+      isInitialLoad.current = true;
+      fetchCourses(true);
+    }
+  }, [fetchCourses]);
+
+  const handleToggleBookmark = useCallback(
+    (id: string) => {
+      toggleBookmark(id);
+    },
+    [toggleBookmark]
+  );
+
+  const renderItem = useCallback(
+    ({ item }: ListRenderItemInfo<Course>) => (
+      <CourseCard course={item} onToggleBookmark={handleToggleBookmark} />
+    ),
+    [handleToggleBookmark]
+  );
+
+  const keyExtractor = useCallback((item: Course) => item.id, []);
+
+  const ListHeader = useMemo(
+    () => (
+      <View className="mb-4">
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {error && (
+          <View className="mt-3 bg-rose-500/10 border border-rose-500/20 rounded-xl px-4 py-3 flex-row items-center gap-3">
+            <Ionicons name="alert-circle" size={18} color="#F43F5E" />
+            <Text className="text-rose-400 text-sm flex-1">{error}</Text>
+            <TouchableOpacity onPress={clearError}>
+              <Ionicons name="close" size={16} color="#F43F5E" />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    ),
+    [searchQuery, setSearchQuery, error, clearError]
+  );
+
+  return (
+    <SafeAreaView className="flex-1 bg-dark-900" edges={["top"]}>
+      <OfflineBanner />
+
+      <View className="px-5 pt-4 pb-2">
+        <Text className="text-white text-2xl font-bold">
+          Explore Courses 📚
+        </Text>
+        <Text className="text-dark-400 text-sm mt-1">
+          {filteredCourses.length} courses available
+        </Text>
+      </View>
+
+      <FlatList
+        data={filteredCourses}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: 24,
+          flexGrow: 1,
+        }}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={
+          !isLoading ? (
+            <EmptyState hasSearch={searchQuery.length > 0} />
+          ) : (
+            <View className="py-12 items-center">
+              <ActivityIndicator color="#6366F1" size="large" />
+              <Text className="text-dark-400 text-sm mt-3">
+                Loading courses...
+              </Text>
+            </View>
+          )
+        }
+        ListFooterComponent={
+          <ListFooter isLoading={isLoading && filteredCourses.length > 0} hasMore={hasMore} />
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={refreshCourses}
+            tintColor="#818CF8"
+            colors={["#818CF8", "#A5B4FC"]}
+            progressBackgroundColor="#1E293B"
+            progressViewOffset={10}
+          />
+        }
+        onEndReached={() => {
+          if (!searchQuery && hasMore) {
+            fetchNextPage();
+          }
+        }}
+        onEndReachedThreshold={0.4}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews
+        maxToRenderPerBatch={8}
+        windowSize={10}
+        initialNumToRender={6}
+        updateCellsBatchingPeriod={50}
+      />
+    </SafeAreaView>
+  );
+}
